@@ -37,14 +37,14 @@ func main() {
 }
 
 func multDivHandler(w http.ResponseWriter, r *http.Request) {
-	generateHandler(w, "multdiv.pdf", &MultDiv{
+	generateHandler(w, "multdiv", &MultDiv{
 		Rows: 30,
 		Cols: 8,
 	})
 }
 
 func addSubHandler(w http.ResponseWriter, r *http.Request) {
-	generateHandler(w, "addsub.pdf", &AddSub{
+	generateHandler(w, "addsub", &AddSub{
 		Rows: 15,
 		Cols: 16,
 	})
@@ -52,9 +52,10 @@ func addSubHandler(w http.ResponseWriter, r *http.Request) {
 
 func generateHandler(w http.ResponseWriter, name string, generator ExampleGenerator) {
 	w.Header().Set("Content-Type", "application/pdf")
-	w.Header().Set("Content-Disposition", "inline; filename=\""+name+"\"")
+	filename := fmt.Sprintf("attachment; filename=%s-%s.pdf", name, time.Now().UTC().Format("20060102150405"))
+	w.Header().Set("Content-Disposition", filename)
 	if err := GeneratePdf(w, generator); err != nil {
-		log.Printf("error generating %s: %v", name, err)
+		log.Printf("error generating %s: %v", filename, err)
 		httpError(w, http.StatusInternalServerError)
 	}
 }
