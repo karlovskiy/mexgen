@@ -1,95 +1,85 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
-	"github.com/SebastiaanKlippert/go-wkhtmltopdf"
-	"html/template"
+	"github.com/gorilla/handlers"
+	_ "github.com/heroku/x/hmetrics/onload"
 	"log"
 	"math/rand"
+	"net/http"
+	"net/http/httputil"
+	"os"
+	"strconv"
 	"time"
 )
 
-const (
-	ExampleRows    = 32
-	ExampleColumns = 8
-
-	PageTemplate = `
-<!DOCTYPE html>
-<html lang="en">
-<body>
-<table cellpadding="10" border="1" width="100%">
-    {{ range .Rows }}
-        <tr>
-			{{ range .Columns }}
-            	<td><b>{{ .Example }}</b></td>
-			{{ end}}
-        </tr>
-    {{ end}}
-</table>
-</body>
-</html>
-`
-)
-
 func main() {
+	portStr := os.Getenv("PORT")
+	if portStr == "" {
+		log.Fatal("PORT must be set")
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		log.Fatalf("bad PORT: %s: %v", portStr, err)
+	}
 	rand.Seed(time.Now().UnixNano())
-	pdfg, err := wkhtmltopdf.NewPDFGenerator()
+	mux := http.NewServeMux()
+
+	mux.Handle("/multdiv",
+		handlers.LoggingHandler(os.Stdout, Handler("GET", http.HandlerFunc(multDivHandler))))
+
+	mux.Handle("/addsub",
+		handlers.LoggingHandler(os.Stdout, Handler("GET", http.HandlerFunc(addSubHandler))))
+
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), mux))
+}
+
+func multDivHandler(w http.ResponseWriter, r *http.Request) {
+	generateHandler(w, "multdiv.pdf", &MultDiv{
+		Rows: 31,
+		Cols: 8,
+	})
+}
+
+func addSubHandler(w http.ResponseWriter, r *http.Request) {
+	generateHandler(w, "addsub.pdf", &AddSub{
+		Rows: 16,
+		Cols: 16,
+	})
+}
+
+func generateHandler(w http.ResponseWriter, name string, generator ExampleGenerator) {
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", "inline; filename=\""+name+"\"")
+	if err := GeneratePdf(w, generator); err != nil {
+		log.Printf("error generating %s: %v", name, err)
+		httpError(w, http.StatusInternalServerError)
+	}
+}
+
+func Handler(method string, h http.Handler) http.Handler {
+	return handler{method, h}
+}
+
+type handler struct {
+	method  string
+	handler http.Handler
+}
+
+func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	reqDump, err := httputil.DumpRequest(r, false)
 	if err != nil {
-		log.Fatalf("error creating PDF generator: %v", err)
+		log.Printf("error dumping req: %v\n", err)
+	} else {
+		log.Printf("\n%s\n", reqDump)
 	}
-	pdfg.Dpi.Set(300)
-	pdfg.Orientation.Set(wkhtmltopdf.OrientationPortrait)
-	pdfg.Grayscale.Set(true)
-	data := Data{}
-	for i := 0; i < ExampleRows; i++ {
-		row := Row{}
-		for j := 0; j < ExampleColumns; j++ {
-			col := Column{Example: generateRandomExample()}
-			row.Columns = append(row.Columns, col)
-		}
-		data.Rows = append(data.Rows, row)
+	if r.Method != h.method {
+		httpError(w, http.StatusMethodNotAllowed) // 405
+		return
 	}
-	t := template.Must(template.New("examplesTemplate").Parse(PageTemplate))
-	var buf bytes.Buffer
-	err = t.Execute(&buf, data)
-	page := wkhtmltopdf.NewPageReader(&buf)
-	page.MinimumFontSize.Set(14)
-	page.Encoding.Set("utf-8")
-	pdfg.AddPage(page)
-	err = pdfg.Create()
-	if err != nil {
-		log.Fatalf("error creating PDF: %v", err)
-	}
-	err = pdfg.WriteFile("./examples.pdf")
-	if err != nil {
-		log.Fatalf("error writing PDF file: %v", err)
-	}
-	fmt.Println("Done")
+	h.handler.ServeHTTP(w, r)
 }
 
-func generateRandomExample() string {
-	left := rand.Intn(10) + 1
-	right := rand.Intn(10) + 1
-	operation := rand.Intn(2)
-	var operationSign string
-	if operation == 0 {
-		operationSign = "\u00D7" // multiplication
-	} else if operation == 1 {
-		operationSign = "\u00F7" // division
-		left = left * right
-	}
-	return fmt.Sprintf("%d%s%d=", left, operationSign, right)
-}
-
-type Data struct {
-	Rows []Row
-}
-
-type Row struct {
-	Columns []Column
-}
-
-type Column struct {
-	Example string
+func httpError(w http.ResponseWriter, status int) {
+	http.Error(w, http.StatusText(status), status)
 }

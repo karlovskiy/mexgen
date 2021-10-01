@@ -2,6 +2,8 @@
 
 Simple math examples generator.
 
-Operations: multiplication and division
-
+### multiplication and division
 Digits range: 1-10 
+
+### addition and substraction
+Digits range: 1-99
