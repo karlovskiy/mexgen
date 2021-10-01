@@ -28,10 +28,6 @@ func GeneratePdf(w http.ResponseWriter, generator ExampleGenerator) error {
 	if err != nil {
 		return fmt.Errorf("error creating PDF: %w", err)
 	}
-	//err = pdfg.WriteFile(filename)
-	//if err != nil {
-	//	log.Fatalf("error writing PDF file: %v", err)
-	//}
 	fmt.Println("PDF has been successfully generated")
 	return nil
 }

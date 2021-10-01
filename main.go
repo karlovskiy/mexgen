@@ -22,6 +22,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("bad PORT: %s: %v", portStr, err)
 	}
+	log.Printf("PORT=%d", port)
+	log.Printf("WKHTMLTOPDF_PATH=%s", os.Getenv("WKHTMLTOPDF_PATH"))
 	rand.Seed(time.Now().UnixNano())
 	mux := http.NewServeMux()
 
