@@ -38,14 +38,14 @@ func main() {
 
 func multDivHandler(w http.ResponseWriter, r *http.Request) {
 	generateHandler(w, "multdiv.pdf", &MultDiv{
-		Rows: 31,
+		Rows: 30,
 		Cols: 8,
 	})
 }
 
 func addSubHandler(w http.ResponseWriter, r *http.Request) {
 	generateHandler(w, "addsub.pdf", &AddSub{
-		Rows: 16,
+		Rows: 15,
 		Cols: 16,
 	})
 }
